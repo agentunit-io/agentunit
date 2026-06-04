@@ -1,0 +1,66 @@
+apiVersion: agentunit.io/v1alpha1
+kind: AgentUnit
+
+metadata:
+  name: prd-writer
+  version: "1.0.0"
+  description: "需求文档撰写单元 — 输入需求要点，输出结构化 PRD"
+  author: "AgentUnit"
+  license: "Apache-2.0"
+  tags: [requirements, prd, writing, product-management]
+  domain: [product-management]
+
+contract:
+  inputs:
+    type: object
+    properties:
+      requirement_notes:
+        type: string
+        description: "需求要点或会议纪要"
+      project_name:
+        type: string
+        description: "项目名称（可选）"
+    required: [requirement_notes]
+  outputs:
+    type: object
+    properties:
+      prd_document:
+        type: string
+        description: "结构化 PRD Markdown 文档"
+      quality_score:
+        type: number
+        description: "自评质量分（0-1）"
+
+governance:
+  responsible_human: ""
+  require_human_approval: true
+  max_token_per_task: 8000
+  audit_enabled: true
+
+runtime:
+  framework: "generic-python"
+  language: "python"
+  entry: "app.py"
+  model:
+    provider: "openai"
+    name: "gpt-4o"
+  components:
+    skills:
+      - name: prd_writer
+        path: skills/prd_writer.md
+    tools:
+      - name: doc_search
+        path: tools/doc_search.py
+    knowledge:
+      - name: prd_template
+        path: knowledge/prd_template.md
+  dependencies:
+    file: requirements.txt
+
+build:
+  base_image: "python:3.11-slim"
+  port: 8091
+  health_check: "/health"
+  env:
+    MODEL_API_KEY: ""
+    MODEL_BASE_URL: ""

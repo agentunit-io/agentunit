@@ -1,0 +1,115 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/agentunit"]
+
+[project]
+name = "agentunit"
+version = "0.1.0"
+description = "The Docker for AI Agent Packaging — CLI + Spec to package any Agent into a standardized, versioned, governable Agent Unit"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.11"
+authors = [
+    { name = "AgentUnit Contributors" },
+]
+keywords = ["agent", "ai", "packaging", "docker", "agent-unit"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Build Tools",
+    "Topic :: System :: Systems Administration",
+]
+dependencies = [
+    "typer>=0.12",
+    "rich>=13.0",
+    "pyyaml>=6.0",
+    "jsonschema>=4.21",
+    "jinja2>=3.1",
+    "pydantic>=2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.5",
+    "mypy>=1.10",
+    "pre-commit>=3.7",
+    "types-pyyaml>=6.0",
+    "types-jsonschema>=4.21",
+]
+
+[project.scripts]
+au = "agentunit.cli.main:app"
+
+[project.entry-points."agentunit.adapters"]
+generic-python = "agentunit.adapters.generic_python:GenericPythonAdapter"
+langchain = "agentunit.adapters.langchain:LangChainAdapter"
+pm-agent = "agentunit.adapters.pm_agent:PmAgentAdapter"
+
+# ── Ruff (linter + formatter) ──
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "N",    # pep8-naming
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "SIM",  # flake8-simplify
+    "TCH",  # flake8-type-checking
+    "RUF",  # ruff-specific rules
+]
+ignore = [
+    "E501",     # line length handled by formatter
+    "RUF001",   # ambiguous Unicode chars — project uses Chinese content
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["agentunit"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+# ── Mypy (type checking) ──
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+ignore_errors = true
+
+# ── Pytest ──
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-v --tb=short"
+markers = [
+    "integration: marks tests requiring Docker",
+]

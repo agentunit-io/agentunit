@@ -1,0 +1,160 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AgentUnit Spec v0.1",
+  "description": "Schema for agentunit.yaml — the manifest of an Agent Unit",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "contract", "runtime"],
+  "properties": {
+    "apiVersion": {
+      "type": "string",
+      "const": "agentunit.io/v1alpha1"
+    },
+    "kind": {
+      "type": "string",
+      "const": "AgentUnit"
+    },
+    "metadata": {
+      "type": "object",
+      "required": ["name", "version", "description"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*[a-z0-9]$",
+          "description": "kebab-case identifier"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9.]+)?$",
+          "description": "SemVer version"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "author": { "type": "string" },
+        "license": { "type": "string", "default": "Apache-2.0" },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "domain": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "contract": {
+      "type": "object",
+      "required": ["inputs", "outputs"],
+      "properties": {
+        "inputs": {
+          "type": "object",
+          "description": "JSON Schema for input data"
+        },
+        "outputs": {
+          "type": "object",
+          "description": "JSON Schema for output data"
+        }
+      }
+    },
+    "governance": {
+      "type": "object",
+      "properties": {
+        "responsible_human": { "type": "string", "default": "" },
+        "require_human_approval": { "type": "boolean", "default": true },
+        "max_token_per_task": { "type": "integer", "minimum": 0 },
+        "audit_enabled": { "type": "boolean", "default": true }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "required": ["framework", "language", "entry"],
+      "properties": {
+        "framework": {
+          "type": "string",
+          "description": "Adapter name"
+        },
+        "language": {
+          "type": "string",
+          "enum": ["python", "nodejs", "go"]
+        },
+        "entry": { "type": "string" },
+        "model": {
+          "type": "object",
+          "required": ["provider", "name"],
+          "properties": {
+            "provider": { "type": "string" },
+            "name": { "type": "string" }
+          }
+        },
+        "components": {
+          "type": "object",
+          "properties": {
+            "skills": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["name", "path"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "path": { "type": "string" }
+                }
+              }
+            },
+            "tools": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["name", "path"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "path": { "type": "string" },
+                  "type": {
+                    "type": "string",
+                    "enum": ["embedded", "external"],
+                    "default": "embedded"
+                  }
+                }
+              }
+            },
+            "knowledge": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["name", "path"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "path": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "framework_config": {
+          "type": "object",
+          "default": {}
+        },
+        "dependencies": {
+          "type": "object",
+          "required": ["file"],
+          "properties": {
+            "file": { "type": "string" }
+          }
+        }
+      }
+    },
+    "build": {
+      "type": "object",
+      "properties": {
+        "base_image": { "type": "string", "default": "python:3.11-slim" },
+        "port": { "type": "integer", "default": 8091, "minimum": 1, "maximum": 65535 },
+        "health_check": { "type": "string", "default": "/health" },
+        "env": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    }
+  }
+}
