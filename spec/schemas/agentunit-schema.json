@@ -88,6 +88,18 @@
             "name": { "type": "string" }
           }
         },
+        "routing": {
+          "type": "object",
+          "description": "Skill routing configuration",
+          "properties": {
+            "default": {
+              "type": "string",
+              "enum": ["auto", "explicit", "hybrid"],
+              "default": "auto",
+              "description": "Default routing mode for skill selection"
+            }
+          }
+        },
         "components": {
           "type": "object",
           "properties": {
@@ -98,7 +110,16 @@
                 "required": ["name", "path"],
                 "properties": {
                   "name": { "type": "string" },
-                  "path": { "type": "string" }
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_-]*[a-z0-9]$",
+                    "description": "Identifier for explicit routing, kebab-case or snake_case (defaults to name)"
+                  },
+                  "path": { "type": "string" },
+                  "description": {
+                    "type": "string",
+                    "description": "One-line description for routing and registry"
+                  }
                 }
               }
             },

@@ -44,10 +44,14 @@ runtime:
   model:
     provider: "openai"
     name: "gpt-4o"
+  routing:
+    default: hybrid
   components:
     skills:
       - name: prd_writer
+        id: prd_writer
         path: skills/prd_writer.md
+        description: "根据需求要点生成结构化 PRD 文档"
     tools:
       - name: doc_search
         path: tools/doc_search.py

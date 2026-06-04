@@ -123,10 +123,14 @@ runtime:
   model:
     provider: "openai"
     name: "gpt-4o"
+  routing:
+    default: hybrid
   components:
     skills:
       - name: example
+        id: example
         path: skills/example.md
+        description: "Example skill"
     knowledge:
       - name: example
         path: knowledge/example.md

@@ -94,6 +94,8 @@ runtime:
   model:
     provider: "openai"
     name: "gpt-4o"
+  routing:
+    default: auto
   framework_config:
     agent_type: "ReAct"
     memory: "ConversationBufferMemory"

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import jsonschema
 import yaml
@@ -40,7 +40,9 @@ class ModelConfig(BaseModel):
 
 class ComponentRef(BaseModel):
     name: str
+    id: str | None = None
     path: str
+    description: str = ""
     type: str = "embedded"
 
 
@@ -54,11 +56,16 @@ class Dependencies(BaseModel):
     file: str = "requirements.txt"
 
 
+class Routing(BaseModel):
+    default: Literal["auto", "explicit", "hybrid"] = "auto"
+
+
 class Runtime(BaseModel):
     framework: str = "generic-python"
     language: str = "python"
     entry: str = "app.py"
     model: ModelConfig = Field(default_factory=ModelConfig)
+    routing: Routing = Field(default_factory=Routing)
     components: Components = Field(default_factory=Components)
     framework_config: dict[str, Any] = Field(default_factory=dict)
     dependencies: Dependencies = Field(default_factory=Dependencies)
@@ -98,7 +105,7 @@ class AgentUnitSpec(BaseModel):
 
 def _spec_to_yaml_dict(spec: AgentUnitSpec) -> dict[str, Any]:
     """Convert spec back to the original YAML-compatible dict."""
-    d: dict[str, Any] = spec.model_dump(by_alias=True)
+    d: dict[str, Any] = spec.model_dump(by_alias=True, exclude_none=True)
     d["apiVersion"] = spec.api_version
     d["kind"] = spec.kind
     return d
@@ -126,6 +133,14 @@ def validate_spec(spec: AgentUnitSpec, base_dir: Path) -> list[str]:
             jsonschema.validate(yaml_dict, schema)
         except jsonschema.ValidationError as e:
             warnings.append(f"Schema validation error: {e.message}")
+
+    # Validate unique skill IDs
+    skill_ids: list[str] = []
+    for skill in spec.runtime.components.skills:
+        sid = skill.id or skill.name
+        if sid in skill_ids:
+            warnings.append(f"Duplicate skill id: '{sid}'")
+        skill_ids.append(sid)
 
     # Check file references
     if not (base_dir / spec.runtime.entry).exists():

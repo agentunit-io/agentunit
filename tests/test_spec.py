@@ -5,7 +5,17 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from agentunit.core.spec import load_spec, validate_spec
+from agentunit.core.spec import (
+    AgentUnitSpec,
+    ComponentRef,
+    Components,
+    Contract,
+    Metadata,
+    Routing,
+    Runtime,
+    load_spec,
+    validate_spec,
+)
 
 FIXTURES_DIR = Path(__file__).parent.parent / "examples" / "prd-writer-generic"
 
@@ -33,8 +43,14 @@ class TestSpecParsing:
         spec = load_spec(FIXTURES_DIR / "agentunit.yaml")
         assert len(spec.runtime.components.skills) == 1
         assert spec.runtime.components.skills[0].name == "prd_writer"
+        assert spec.runtime.components.skills[0].id == "prd_writer"
+        assert spec.runtime.components.skills[0].description != ""
         assert len(spec.runtime.components.tools) == 1
         assert len(spec.runtime.components.knowledge) == 1
+
+    def test_routing(self) -> None:
+        spec = load_spec(FIXTURES_DIR / "agentunit.yaml")
+        assert spec.runtime.routing.default == "hybrid"
 
     def test_governance_defaults(self) -> None:
         spec = load_spec(FIXTURES_DIR / "agentunit.yaml")
@@ -63,6 +79,58 @@ class TestSpecValidation:
         warnings = validate_spec(spec, tmp_path)
         assert any("not found" in w for w in warnings)
 
+    def test_invalid_routing_mode(self) -> None:
+        import pytest
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError, match="literal_error"):
+            Routing(default="invalid")  # type: ignore[arg-type]
+
+    def test_duplicate_skill_ids(self, tmp_path: Path) -> None:
+        spec = AgentUnitSpec(
+            metadata=Metadata(name="test", version="1.0.0", description="test"),
+            contract=Contract(inputs={}, outputs={}),
+            runtime=Runtime(
+                components=Components(
+                    skills=[
+                        ComponentRef(name="a", id="same-id", path="skills/a.md"),
+                        ComponentRef(name="b", id="same-id", path="skills/b.md"),
+                    ],
+                ),
+            ),
+        )
+        warnings = validate_spec(spec, tmp_path)
+        assert any("Duplicate skill id" in w for w in warnings)
+
+    def test_skill_without_id_falls_back_to_name(self, tmp_path: Path) -> None:
+        spec = AgentUnitSpec(
+            metadata=Metadata(name="test", version="1.0.0", description="test"),
+            contract=Contract(inputs={}, outputs={}),
+            runtime=Runtime(
+                components=Components(
+                    skills=[
+                        ComponentRef(name="alpha", path="skills/a.md"),
+                        ComponentRef(name="alpha", path="skills/b.md"),
+                    ],
+                ),
+            ),
+        )
+        warnings = validate_spec(spec, tmp_path)
+        assert any("Duplicate skill id" in w for w in warnings)
+
+    def test_skill_without_id_no_spurious_schema_error(self, tmp_path: Path) -> None:
+        spec = AgentUnitSpec(
+            metadata=Metadata(name="test", version="1.0.0", description="test"),
+            contract=Contract(inputs={}, outputs={}),
+            runtime=Runtime(
+                components=Components(
+                    skills=[ComponentRef(name="my_skill", path="skills/my_skill.md")],
+                ),
+            ),
+        )
+        warnings = validate_spec(spec, tmp_path)
+        assert not any("Schema validation" in w and "id" in w for w in warnings)
+
 
 class TestDockerLabels:
     def test_labels_contain_required_keys(self) -> None:
@@ -90,3 +158,6 @@ class TestSpecSerialization:
         assert d["kind"] == "AgentUnit"
         assert d["metadata"]["name"] == "prd-writer"
         assert d["runtime"]["framework"] == "generic-python"
+        assert d["runtime"]["routing"]["default"] == "hybrid"
+        assert d["runtime"]["components"]["skills"][0]["id"] == "prd_writer"
+        assert d["runtime"]["components"]["skills"][0]["description"] != ""

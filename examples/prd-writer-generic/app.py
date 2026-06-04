@@ -109,10 +109,18 @@ async def spec_endpoint(request: Request) -> JSONResponse:
 
 async def run_endpoint(request: Request) -> JSONResponse:
     body = await request.json()
+    skill_id = body.get("skill_id", "")
     notes = body.get("requirement_notes", "")
     project = body.get("project_name", "")
+
     if not notes:
         return JSONResponse({"error": "requirement_notes is required"}, status_code=400)
+
+    # Skill routing: for this unit, all requests go to prd_writer
+    # (single-skill unit, but skill_id is accepted for governance tracking)
+    if skill_id and skill_id != "prd_writer":
+        return JSONResponse({"error": f"Unknown skill: {skill_id}"}, status_code=400)
+
     result = generate_prd(notes, project)
     return JSONResponse(result)
 

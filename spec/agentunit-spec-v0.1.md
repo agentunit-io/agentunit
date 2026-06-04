@@ -47,10 +47,14 @@ runtime:
   model:
     provider: string     # Required. openai | anthropic | custom
     name: string         # Required. Model identifier
+  routing:
+    default: string      # Optional. "auto" | "explicit" | "hybrid". Default "auto"
   components:
     skills:
-      - name: string     # Required
-        path: string     # Required. Relative path
+      - name: string         # Required. Human-readable skill name
+        id: string           # Optional. Identifier for explicit routing, defaults to name
+        path: string         # Required. Relative path to skill definition
+        description: string  # Optional. One-line description for routing/registry
     tools:
       - name: string     # Required
         path: string     # Required. Relative path
@@ -89,13 +93,54 @@ When packed, the following labels are written to the Docker image:
 | `agentunit.framework` | runtime.framework |
 | `agentunit.spec` | Full agentunit.yaml content as JSON string |
 
+### Skill Routing
+
+An Agent Unit is a **capability collection** — not a single skill. It packages multiple Skills that represent different sub-capabilities of a business role. The routing system controls how callers invoke specific skills.
+
+#### Routing Modes
+
+| Mode | Behavior | Use Case |
+|------|----------|----------|
+| `auto` | Framework automatically selects the best skill based on input | Conversational UX, chatbots |
+| `explicit` | Caller must specify `skill_id` for every request | API/system integration, governance-critical flows |
+| `hybrid` | `skill_id` is optional — explicit when provided, auto when omitted | General purpose (recommended) |
+
+#### Skill Identification
+
+Each skill in `runtime.components.skills` may declare:
+- `id`: An identifier (kebab-case or snake_case) used for explicit routing (defaults to `name` if omitted)
+- `description`: A one-line description used by the routing engine and HA-OOS registry
+
+#### `/run` Endpoint with Routing
+
+The `/run` endpoint accepts an optional `skill_id` field:
+
+```json
+POST /run
+{
+  "skill_id": "prd_writer",     // Optional. Explicit skill selection
+  "requirement_notes": "..."    // Per contract.inputs
+}
+```
+
+When `skill_id` is provided, the Unit MUST route to the specified skill. When omitted, the routing mode determines behavior:
+- `auto` / `hybrid`: Framework selects the best-matching skill
+- `explicit`: Returns an error if `skill_id` is missing
+
+#### Governance Implications
+
+Skill-level routing enables:
+- **Audit granularity**: Track which skill handled each request
+- **Performance evaluation**: Measure per-skill quality scores and latency
+- **Access control**: Restrict certain skills to authorized callers (future)
+
 ### Runtime HTTP Interface
 
 All Agent Units expose a standard HTTP interface:
 
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
-| `/run` | POST | Execute the agent. Body = contract.inputs schema |
+| `/run` | POST | Execute the agent. Body may include `skill_id` + contract.inputs |
 | `/health` | GET | Health check |
 | `/spec` | GET | Return agentunit.yaml as JSON |
 
@@ -110,3 +155,6 @@ Response from `/run` conforms to `contract.outputs` schema.
 5. `runtime.entry` must reference an existing file
 6. `runtime.dependencies.file` must reference an existing file
 7. `runtime.framework` must match a registered adapter name
+8. `runtime.routing.default` must be one of: `auto`, `explicit`, `hybrid`
+9. Each `components.skills[].id` must be unique within the Unit
+10. When `routing.default` is `explicit`, `/run` requests without `skill_id` must be rejected

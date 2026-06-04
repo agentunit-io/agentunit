@@ -109,10 +109,14 @@ runtime:
   model:
     provider: "openai"
     name: "gpt-4o"
+  routing:
+    default: hybrid
   components:
     skills:
       - name: example
+        id: example
         path: skills/example.md
+        description: "Example skill"
     tools:
       - name: example
         path: tools/example.py
@@ -161,7 +165,10 @@ async def spec(request: Request) -> JSONResponse:
 
 async def run(request: Request) -> JSONResponse:
     body = await request.json()
+    skill_id = body.get("skill_id", "")
     # TODO: Implement your agent logic here
+    # - If skill_id is provided, route to the matching skill
+    # - If skill_id is omitted, use routing.default from agentunit.yaml
     # - Load skills from skills/ directory
     # - Call LLM with model config
     # - Use tools from tools/ directory
