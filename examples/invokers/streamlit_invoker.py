@@ -7,9 +7,23 @@ and multi-unit coordination are HA-OOS responsibilities.
 from __future__ import annotations
 
 import json
+from urllib.parse import urlparse
 
 import requests
 import streamlit as st
+
+_MAX_INPUT_FIELDS = 20
+
+
+def _validate_url(url: str) -> str | None:
+    """Return error message if URL is invalid, None if safe."""
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        return f"URL must use http or https, got '{parsed.scheme}'"
+    if not parsed.hostname:
+        return "URL has no hostname"
+    return None
+
 
 st.set_page_config(page_title="AgentUnit Invoker", page_icon="🤖", layout="wide")
 st.title("AgentUnit Invoker")
@@ -21,19 +35,23 @@ with st.sidebar:
 
     spec: dict | None = None
     if st.button("Connect", use_container_width=True):
-        with st.spinner("Fetching spec..."):
-            try:
-                resp = requests.get(f"{unit_url}/spec", timeout=5)
-                resp.raise_for_status()
-                spec = resp.json()
-                st.session_state["spec"] = spec
-                st.session_state["unit_url"] = unit_url
-            except requests.ConnectionError:
-                st.error("Cannot connect. Is the Unit running?")
-            except requests.HTTPError as e:
-                st.error(f"Spec request failed: {e}")
-            except requests.Timeout:
-                st.error("Connection timed out.")
+        url_err = _validate_url(unit_url)
+        if url_err:
+            st.error(url_err)
+        else:
+            with st.spinner("Fetching spec..."):
+                try:
+                    resp = requests.get(f"{unit_url}/spec", timeout=5)
+                    resp.raise_for_status()
+                    spec = resp.json()
+                    st.session_state["spec"] = spec
+                    st.session_state["unit_url"] = unit_url
+                except requests.ConnectionError:
+                    st.error("Cannot connect. Is the Unit running?")
+                except requests.HTTPError as e:
+                    st.error(f"Spec request failed: {e}")
+                except requests.Timeout:
+                    st.error("Connection timed out.")
 
     # Display Unit metadata if connected
     cached_spec = st.session_state.get("spec")
@@ -85,6 +103,10 @@ if not input_props:
     st.warning("This Unit declares no input fields in its contract.")
     st.stop()
 
+if len(input_props) > _MAX_INPUT_FIELDS:
+    st.error(f"Contract defines too many fields ({len(input_props)} > {_MAX_INPUT_FIELDS})")
+    st.stop()
+
 input_values: dict = {}
 st.subheader("Input")
 
@@ -108,28 +130,34 @@ for field_name, field_def in input_props.items():
 unit_url = st.session_state.get("unit_url", unit_url)
 
 if st.button("Run", type="primary", use_container_width=True):
-    missing = [f for f in required_fields if f not in input_values or input_values[f] in (None, "")]
-    if missing:
-        st.error(f"Required fields missing: {', '.join(missing)}")
+    url_err = _validate_url(unit_url)
+    if url_err:
+        st.error(url_err)
     else:
-        payload: dict = {k: v for k, v in input_values.items() if v not in (None, "")}
-        if selected_skill:
-            payload["skill_id"] = selected_skill
+        missing = [
+            f for f in required_fields if f not in input_values or input_values[f] in (None, "")
+        ]
+        if missing:
+            st.error(f"Required fields missing: {', '.join(missing)}")
+        else:
+            payload: dict = {k: v for k, v in input_values.items() if v not in (None, "")}
+            if selected_skill:
+                payload["skill_id"] = selected_skill
 
-        with st.spinner("Running..."):
-            try:
-                resp = requests.post(f"{unit_url}/run", json=payload, timeout=120)
-                resp.raise_for_status()
-                result = resp.json()
-                st.session_state["last_result"] = result
-            except requests.ConnectionError:
-                st.error("Connection lost. Is the Unit still running?")
-            except requests.HTTPError:
-                st.error(f"Run failed ({resp.status_code}): {resp.text[:500]}")
-            except requests.Timeout:
-                st.error("Request timed out (120s).")
-            except json.JSONDecodeError:
-                st.error("Unit returned invalid JSON.")
+            with st.spinner("Running..."):
+                try:
+                    resp = requests.post(f"{unit_url}/run", json=payload, timeout=120)
+                    resp.raise_for_status()
+                    result = resp.json()
+                    st.session_state["last_result"] = result
+                except requests.ConnectionError:
+                    st.error("Connection lost. Is the Unit still running?")
+                except requests.HTTPError:
+                    st.error(f"Run failed ({resp.status_code}): {resp.text[:500]}")
+                except requests.Timeout:
+                    st.error("Request timed out (120s).")
+                except json.JSONDecodeError:
+                    st.error("Unit returned invalid JSON.")
 
 # Display results
 last_result = st.session_state.get("last_result")
