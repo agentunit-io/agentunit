@@ -8,13 +8,13 @@ from typing import Any, Literal
 
 import jsonschema
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class Metadata(BaseModel):
-    name: str
-    version: str
-    description: str
+    name: str = Field(pattern=r"^[a-z][a-z0-9-]*[a-z0-9]$")
+    version: str = Field(pattern=r"^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$")
+    description: str = Field(min_length=1, max_length=500)
     author: str = ""
     license: str = "Apache-2.0"
     tags: list[str] = Field(default_factory=list)
@@ -27,10 +27,23 @@ class Contract(BaseModel):
 
 
 class Governance(BaseModel):
-    responsible_human: str = ""
     require_human_approval: bool = True
-    max_token_per_task: int = 0
+    max_token_per_task: int | None = Field(default=None, ge=1)
     audit_enabled: bool = True
+
+
+class Protocol(BaseModel):
+    mode: Literal["request-response", "streaming", "both"] = "request-response"
+    streaming_type: Literal["sse", "none", "websocket"] = "none"
+    compatible_with: list[str] = Field(default_factory=list)
+    supports_function_calling: bool = False
+
+    @model_validator(mode="after")
+    def check_streaming_consistency(self) -> Protocol:
+        if self.mode == "request-response" and self.streaming_type != "none":
+            msg = "streaming_type must be 'none' when mode is 'request-response'"
+            raise ValueError(msg)
+        return self
 
 
 class ModelConfig(BaseModel):
@@ -43,7 +56,8 @@ class ComponentRef(BaseModel):
     id: str | None = None
     path: str
     description: str = ""
-    type: str = "embedded"
+    type: Literal["embedded", "external"] = "embedded"
+    contract: Contract | None = None
 
 
 class Components(BaseModel):
@@ -57,12 +71,12 @@ class Dependencies(BaseModel):
 
 
 class Routing(BaseModel):
-    default: Literal["auto", "explicit", "hybrid"] = "auto"
+    default: Literal["auto", "explicit", "hybrid"] = "hybrid"
 
 
 class Runtime(BaseModel):
     framework: str = "generic-python"
-    language: str = "python"
+    language: Literal["python", "nodejs", "go"] = "python"
     entry: str = "app.py"
     model: ModelConfig = Field(default_factory=ModelConfig)
     routing: Routing = Field(default_factory=Routing)
@@ -71,20 +85,57 @@ class Runtime(BaseModel):
     dependencies: Dependencies = Field(default_factory=Dependencies)
 
 
+class Resources(BaseModel):
+    cpu: str = "1"
+    memory: str = "512Mi"
+    gpu: bool = False
+    timeout_seconds: int = Field(default=300, ge=1)
+    concurrency: int = Field(default=10, ge=1)
+
+
+class ServiceDependency(BaseModel):
+    outbound_network: bool = True
+    domains: list[str] = Field(default_factory=list)
+
+
+class EvaluationIndicator(BaseModel):
+    field: str
+    description: str = ""
+    range: list[float] | None = None
+    higher_is_better: bool = True
+
+
+class EvaluationBaselines(BaseModel):
+    latency_p95_ms: int | None = Field(default=None, ge=1)
+    success_rate: float | None = Field(default=None, ge=0, le=1)
+
+
+class Observability(BaseModel):
+    metrics_endpoint: str = ""
+    evaluation_indicators: list[EvaluationIndicator] = Field(default_factory=list)
+    baselines: EvaluationBaselines = Field(default_factory=EvaluationBaselines)
+
+
 class Build(BaseModel):
     base_image: str = "python:3.11-slim"
-    port: int = 8091
+    port: int = Field(default=8091, ge=1, le=65535)
     health_check: str = "/health"
     env: dict[str, str] = Field(default_factory=dict)
 
 
 class AgentUnitSpec(BaseModel):
-    api_version: str = Field(alias="apiVersion", default="agentunit.io/v1alpha1")
-    kind: str = "AgentUnit"
+    api_version: Literal["agentunit.io/v1alpha1"] = Field(
+        alias="apiVersion", default="agentunit.io/v1alpha1"
+    )
+    kind: Literal["AgentUnit"] = "AgentUnit"
     metadata: Metadata
     contract: Contract
     governance: Governance = Field(default_factory=Governance)
+    protocol: Protocol = Field(default_factory=Protocol)
     runtime: Runtime = Field(default_factory=Runtime)
+    resources: Resources = Field(default_factory=Resources)
+    services: ServiceDependency = Field(default_factory=ServiceDependency)
+    observability: Observability = Field(default_factory=Observability)
     build: Build = Field(default_factory=Build)
 
     model_config = {"populate_by_name": True}
@@ -105,10 +156,7 @@ class AgentUnitSpec(BaseModel):
 
 def _spec_to_yaml_dict(spec: AgentUnitSpec) -> dict[str, Any]:
     """Convert spec back to the original YAML-compatible dict."""
-    d: dict[str, Any] = spec.model_dump(by_alias=True, exclude_none=True)
-    d["apiVersion"] = spec.api_version
-    d["kind"] = spec.kind
-    return d
+    return spec.model_dump(by_alias=True, exclude_none=True)
 
 
 def load_spec(path: Path) -> AgentUnitSpec:

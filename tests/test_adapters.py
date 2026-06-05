@@ -7,7 +7,13 @@ from pathlib import Path
 import pytest
 
 from agentunit.adapters.registry import framework_names, get, list_frameworks
-from agentunit.core.spec import load_spec
+from agentunit.core.spec import (
+    AgentUnitSpec,
+    Contract,
+    Metadata,
+    Runtime,
+    load_spec,
+)
 
 FIXTURES_DIR = Path(__file__).parent.parent / "examples" / "prd-writer-generic"
 
@@ -49,7 +55,8 @@ class TestGenericPythonAdapter:
         assert "EXPOSE 8091" in dockerfile
         assert "agentunit.name" in dockerfile
         assert "prd-writer" in dockerfile
-        assert "CMD" in dockerfile
+        assert 'ENTRYPOINT ["python", "app.py"]' in dockerfile
+        assert "HEALTHCHECK" in dockerfile
 
     def test_run_command(self) -> None:
         adapter = get("generic-python")
@@ -71,6 +78,13 @@ class TestLangChainAdapter:
         adapter = get("langchain")
         assert adapter.name == "langchain"
 
+    def test_generate_dockerfile_no_healthcheck(self) -> None:
+        adapter = get("langchain")
+        spec = load_spec(FIXTURES_DIR / "agentunit.yaml")
+        dockerfile = adapter.generate_dockerfile(spec, FIXTURES_DIR)
+        assert "HEALTHCHECK" not in dockerfile
+        assert "ENTRYPOINT" in dockerfile
+
 
 class TestPmAgentAdapter:
     def test_init_templates(self) -> None:
@@ -89,3 +103,34 @@ class TestPmAgentAdapter:
         warnings = adapter.validate_framework_config({"unknown_key": "value"})
         assert len(warnings) == 1
         assert "unknown_key" in warnings[0]
+
+    def test_generate_dockerfile_module_entry(self) -> None:
+        adapter = get("pm-agent")
+        spec = AgentUnitSpec(
+            metadata=Metadata(name="test-pm", version="1.0.0", description="test"),
+            contract=Contract(inputs={}, outputs={}),
+            runtime=Runtime(framework="pm-agent", entry="pm_agent.main"),
+        )
+        dockerfile = adapter.generate_dockerfile(spec, Path("/tmp"))
+        assert 'ENTRYPOINT ["python", "-m", "pm_agent.main"]' in dockerfile
+        assert "HEALTHCHECK" in dockerfile
+
+
+class TestEntrypointArgs:
+    def test_file_entry(self) -> None:
+        adapter = get("generic-python")
+        spec = AgentUnitSpec(
+            metadata=Metadata(name="test", version="1.0.0", description="test"),
+            contract=Contract(inputs={}, outputs={}),
+            runtime=Runtime(entry="app.py"),
+        )
+        assert adapter._entrypoint_args(spec) == ["python", "app.py"]
+
+    def test_module_entry(self) -> None:
+        adapter = get("pm-agent")
+        spec = AgentUnitSpec(
+            metadata=Metadata(name="test", version="1.0.0", description="test"),
+            contract=Contract(inputs={}, outputs={}),
+            runtime=Runtime(entry="pm_agent.main"),
+        )
+        assert adapter._entrypoint_args(spec) == ["python", "-m", "pm_agent.main"]

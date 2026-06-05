@@ -33,42 +33,15 @@ class PmAgentAdapter(AgentAdapter):
             "requirements.txt": _PM_REQUIREMENTS,
         }
 
-    def generate_dockerfile(self, spec: AgentUnitSpec, context_dir: Path) -> str:
-        lines = [
-            f"FROM {spec.build.base_image}",
-            "",
-            "WORKDIR /agent",
-            "",
-            f"COPY {spec.runtime.dependencies.file} ./",
-            "RUN pip install --no-cache-dir -r requirements.txt",
-            "",
-            "COPY . .",
-            "",
-            f"EXPOSE {spec.build.port}",
-            "",
-        ]
-        for key, val in spec.docker_labels.items():
-            escaped = val.replace('"', '\\"')
-            lines.append(f'LABEL "{key}"="{escaped}"')
-        lines.append("")
-        lines.append(
-            f"HEALTHCHECK CMD curl -f http://localhost:{spec.build.port}{spec.build.health_check} || exit 1"
-        )
-        lines.append("")
-        lines.append('CMD ["python", "-m", "pm_agent.main"]')
-        return "\n".join(lines) + "\n"
-
     def get_run_command(self, spec: AgentUnitSpec, image: str, input_file: str) -> list[str]:
         cmd = ["docker", "run", "--rm"]
         cmd += ["-p", f"{spec.build.port}:{spec.build.port}"]
         cmd += ["-e", f"PMAGENT_PORT={spec.build.port}"]
-        cmd += ["-e", "PMAGENT_LLM_BASE_URL=${MODEL_BASE_URL}"]
-        cmd += ["-e", "PMAGENT_LLM_API_KEY=${MODEL_API_KEY}"]
         for key, val in spec.build.env.items():
             if val:
                 cmd += ["-e", f"{key}={val}"]
         cmd += ["-v", f"{Path(input_file).resolve()}:/agent/input.json:ro"]
-        cmd += [image]
+        cmd += [image, "--input", "/agent/input.json"]
         return cmd
 
     def validate_framework_config(self, config: dict[str, Any]) -> list[str]:
@@ -116,6 +89,12 @@ governance:
   require_human_approval: true
   audit_enabled: true
 
+protocol:
+  mode: "request-response"
+  streaming_type: "none"
+  compatible_with: []
+  supports_function_calling: false
+
 runtime:
   framework: "pm-agent"
   language: "python"
@@ -139,6 +118,20 @@ runtime:
     session_backend: "sqlite"
   dependencies:
     file: requirements.txt
+
+resources:
+  cpu: "1"
+  memory: "512Mi"
+  gpu: false
+  timeout_seconds: 300
+  concurrency: 10
+
+services:
+  outbound_network: true
+  domains: ["api.openai.com"]
+
+observability:
+  metrics_endpoint: ""
 
 build:
   base_image: "python:3.11-slim"

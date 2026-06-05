@@ -32,10 +32,15 @@ contract:
         description: "自评质量分（0-1）"
 
 governance:
-  responsible_human: ""
   require_human_approval: true
   max_token_per_task: 8000
   audit_enabled: true
+
+protocol:
+  mode: "request-response"
+  streaming_type: "none"
+  compatible_with: []
+  supports_function_calling: false
 
 runtime:
   framework: "generic-python"
@@ -60,6 +65,27 @@ runtime:
         path: knowledge/prd_template.md
   dependencies:
     file: requirements.txt
+
+resources:
+  cpu: "1"
+  memory: "512Mi"
+  gpu: false
+  timeout_seconds: 300
+  concurrency: 10
+
+services:
+  outbound_network: true
+  domains: ["api.openai.com"]
+
+observability:
+  evaluation_indicators:
+    - field: "quality_score"
+      description: "自评质量分"
+      range: [0, 1]
+      higher_is_better: true
+  baselines:
+    latency_p95_ms: 10000
+    success_rate: 0.95
 
 build:
   base_image: "python:3.11-slim"

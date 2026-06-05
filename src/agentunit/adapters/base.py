@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
 
@@ -31,9 +32,47 @@ class AgentAdapter(ABC):
     def get_init_templates(self) -> dict[str, str]:
         """Return files to generate during `au init`. {relative_path: template_content}."""
 
-    @abstractmethod
     def generate_dockerfile(self, spec: AgentUnitSpec, context_dir: Path) -> str:
-        """Generate a Dockerfile for the given spec."""
+        """Generate a Dockerfile for the given spec. Override for full customization."""
+        lines = [
+            f"FROM {spec.build.base_image}",
+            "",
+            "WORKDIR /agent",
+            "",
+            f"COPY {spec.runtime.dependencies.file} ./",
+            f"RUN pip install --no-cache-dir -r {spec.runtime.dependencies.file}",
+            "",
+            "COPY . .",
+            "",
+            f"EXPOSE {spec.build.port}",
+            "",
+        ]
+        for key, val in spec.docker_labels.items():
+            escaped = val.replace('"', '\\"')
+            lines.append(f'LABEL "{key}"="{escaped}"')
+        lines.append("")
+
+        if self._include_healthcheck(spec):
+            lines.append(
+                f"HEALTHCHECK CMD curl -f http://localhost:{spec.build.port}"
+                f"{spec.build.health_check} || exit 1"
+            )
+            lines.append("")
+
+        entry_args = self._entrypoint_args(spec)
+        lines.append(f"ENTRYPOINT {json.dumps(entry_args)}")
+        return "\n".join(lines) + "\n"
+
+    def _entrypoint_args(self, spec: AgentUnitSpec) -> list[str]:
+        """Return ENTRYPOINT command args. Override for custom entry behavior."""
+        entry = spec.runtime.entry
+        if entry.endswith(".py"):
+            return ["python", entry]
+        return ["python", "-m", entry]
+
+    def _include_healthcheck(self, spec: AgentUnitSpec) -> bool:
+        """Whether to include HEALTHCHECK in the generated Dockerfile."""
+        return True
 
     @abstractmethod
     def get_run_command(self, spec: AgentUnitSpec, image: str, input_file: str) -> list[str]:

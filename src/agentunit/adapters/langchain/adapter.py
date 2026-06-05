@@ -24,33 +24,15 @@ class LangChainAdapter(AgentAdapter):
     def description(self) -> str:
         return "For LangChain / LangGraph agents (experimental)"
 
+    def _include_healthcheck(self, spec: AgentUnitSpec) -> bool:
+        return False
+
     def get_init_templates(self) -> dict[str, str]:
         return {
             "agentunit.yaml": _LANGCHAIN_YAML,
             "app.py": _LANGCHAIN_APP,
             "requirements.txt": _LANGCHAIN_REQS,
         }
-
-    def generate_dockerfile(self, spec: AgentUnitSpec, context_dir: Path) -> str:
-        lines = [
-            f"FROM {spec.build.base_image}",
-            "",
-            "WORKDIR /agent",
-            "",
-            f"COPY {spec.runtime.dependencies.file} ./",
-            "RUN pip install --no-cache-dir -r requirements.txt",
-            "",
-            "COPY . .",
-            "",
-            f"EXPOSE {spec.build.port}",
-            "",
-        ]
-        for key, val in spec.docker_labels.items():
-            escaped = val.replace('"', '\\"')
-            lines.append(f'LABEL "{key}"="{escaped}"')
-        lines.append("")
-        lines.append(f'CMD ["python", "{spec.runtime.entry}"]')
-        return "\n".join(lines) + "\n"
 
     def get_run_command(self, spec: AgentUnitSpec, image: str, input_file: str) -> list[str]:
         cmd = ["docker", "run", "--rm"]
@@ -87,6 +69,16 @@ contract:
       result:
         type: string
 
+governance:
+  require_human_approval: true
+  audit_enabled: true
+
+protocol:
+  mode: "request-response"
+  streaming_type: "none"
+  compatible_with: []
+  supports_function_calling: false
+
 runtime:
   framework: "langchain"
   language: "python"
@@ -95,16 +87,34 @@ runtime:
     provider: "openai"
     name: "gpt-4o"
   routing:
-    default: auto
+    default: hybrid
   framework_config:
     agent_type: "ReAct"
     memory: "ConversationBufferMemory"
   dependencies:
     file: requirements.txt
 
+resources:
+  cpu: "1"
+  memory: "512Mi"
+  gpu: false
+  timeout_seconds: 300
+  concurrency: 10
+
+services:
+  outbound_network: true
+  domains: ["api.openai.com"]
+
+observability:
+  metrics_endpoint: ""
+
 build:
   base_image: "python:3.11-slim"
   port: 8091
+  health_check: "/health"
+  env:
+    MODEL_API_KEY: ""
+    MODEL_BASE_URL: ""
 """
 
 _LANGCHAIN_APP = """\

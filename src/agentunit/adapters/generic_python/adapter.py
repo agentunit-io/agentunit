@@ -34,33 +34,6 @@ class GenericPythonAdapter(AgentAdapter):
             "requirements.txt": _REQUIREMENTS,
         }
 
-    def generate_dockerfile(self, spec: AgentUnitSpec, context_dir: Path) -> str:
-        deps_file = spec.runtime.dependencies.file
-        lines = [
-            f"FROM {spec.build.base_image}",
-            "",
-            "WORKDIR /agent",
-            "",
-            f"COPY {deps_file} ./",
-            "RUN pip install --no-cache-dir -r requirements.txt",
-            "",
-            "COPY . .",
-            "",
-            f"EXPOSE {spec.build.port}",
-            "",
-        ]
-        # Add labels
-        for key, val in spec.docker_labels.items():
-            escaped = val.replace('"', '\\"')
-            lines.append(f'LABEL "{key}"="{escaped}"')
-        lines.append("")
-        lines.append(
-            f"HEALTHCHECK CMD curl -f http://localhost:{spec.build.port}{spec.build.health_check} || exit 1"
-        )
-        lines.append("")
-        lines.append(f'CMD ["python", "{spec.runtime.entry}"]')
-        return "\n".join(lines) + "\n"
-
     def get_run_command(self, spec: AgentUnitSpec, image: str, input_file: str) -> list[str]:
         cmd = ["docker", "run", "--rm"]
         cmd += ["-p", f"{spec.build.port}:{spec.build.port}"]
@@ -102,6 +75,12 @@ governance:
   require_human_approval: true
   audit_enabled: true
 
+protocol:
+  mode: "request-response"
+  streaming_type: "none"
+  compatible_with: []
+  supports_function_calling: false
+
 runtime:
   framework: "generic-python"
   language: "python"
@@ -120,11 +99,26 @@ runtime:
     tools:
       - name: example
         path: tools/example.py
+        type: embedded
     knowledge:
       - name: example
         path: knowledge/example.md
   dependencies:
     file: requirements.txt
+
+resources:
+  cpu: "1"
+  memory: "512Mi"
+  gpu: false
+  timeout_seconds: 300
+  concurrency: 10
+
+services:
+  outbound_network: true
+  domains: ["api.openai.com"]
+
+observability:
+  metrics_endpoint: ""
 
 build:
   base_image: "python:3.11-slim"
@@ -164,8 +158,10 @@ async def spec(request: Request) -> JSONResponse:
 
 
 async def run(request: Request) -> JSONResponse:
+    import time
     body = await request.json()
     skill_id = body.get("skill_id", "")
+    start = time.monotonic()
     # TODO: Implement your agent logic here
     # - If skill_id is provided, route to the matching skill
     # - If skill_id is omitted, use routing.default from agentunit.yaml
@@ -173,8 +169,15 @@ async def run(request: Request) -> JSONResponse:
     # - Call LLM with model config
     # - Use tools from tools/ directory
     # - Reference knowledge from knowledge/ directory
-    result = {"result": f"Agent received: {body}"}
-    return JSONResponse(result)
+    output = {"result": f"Agent received: {body}"}
+    elapsed_ms = int((time.monotonic() - start) * 1000)
+    return JSONResponse({
+        "output": output,
+        "telemetry": {
+            "skill_id": skill_id or None,
+            "latency_ms": elapsed_ms,
+        },
+    })
 
 
 app = Starlette(routes=[
@@ -189,7 +192,8 @@ if __name__ == "__main__":
         idx = sys.argv.index("--input")
         input_path = sys.argv[idx + 1]
         data = json.loads(Path(input_path).read_text())
-        print(json.dumps({"result": f"Agent received: {data}"}))
+        output = {"result": f"Agent received: {data}"}
+        print(json.dumps({"output": output, "telemetry": {}}))
     else:
         uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", "8091")))
 """

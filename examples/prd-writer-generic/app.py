@@ -108,6 +108,8 @@ async def spec_endpoint(request: Request) -> JSONResponse:
 
 
 async def run_endpoint(request: Request) -> JSONResponse:
+    import time
+
     body = await request.json()
     skill_id = body.get("skill_id", "")
     notes = body.get("requirement_notes", "")
@@ -116,13 +118,22 @@ async def run_endpoint(request: Request) -> JSONResponse:
     if not notes:
         return JSONResponse({"error": "requirement_notes is required"}, status_code=400)
 
-    # Skill routing: for this unit, all requests go to prd_writer
-    # (single-skill unit, but skill_id is accepted for governance tracking)
     if skill_id and skill_id != "prd_writer":
         return JSONResponse({"error": f"Unknown skill: {skill_id}"}, status_code=400)
 
-    result = generate_prd(notes, project)
-    return JSONResponse(result)
+    start = time.monotonic()
+    output = generate_prd(notes, project)
+    elapsed_ms = int((time.monotonic() - start) * 1000)
+
+    return JSONResponse(
+        {
+            "output": output,
+            "telemetry": {
+                "skill_id": "prd_writer",
+                "latency_ms": elapsed_ms,
+            },
+        }
+    )
 
 
 app = Starlette(
@@ -138,11 +149,11 @@ if __name__ == "__main__":
         idx = sys.argv.index("--input")
         input_path = sys.argv[idx + 1]
         data = json.loads(Path(input_path).read_text())
-        result = generate_prd(
+        output = generate_prd(
             data.get("requirement_notes", ""),
             data.get("project_name", ""),
         )
-        print(json.dumps(result, ensure_ascii=False, indent=2))
+        print(json.dumps({"output": output, "telemetry": {}}, ensure_ascii=False, indent=2))
     else:
         import uvicorn
 

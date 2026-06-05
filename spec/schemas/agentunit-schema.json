@@ -60,11 +60,49 @@
     },
     "governance": {
       "type": "object",
+      "description": "Policy declarations inherent to the Unit",
       "properties": {
-        "responsible_human": { "type": "string", "default": "" },
         "require_human_approval": { "type": "boolean", "default": true },
-        "max_token_per_task": { "type": "integer", "minimum": 0 },
+        "max_token_per_task": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Token budget per task. Omit or null means no limit"
+        },
         "audit_enabled": { "type": "boolean", "default": true }
+      }
+    },
+    "protocol": {
+      "type": "object",
+      "description": "Calling interface — declares how external callers interact with this Unit",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["request-response", "streaming", "both"],
+          "default": "request-response",
+          "description": "Interaction mode"
+        },
+        "streaming_type": {
+          "type": "string",
+          "enum": ["sse", "none", "websocket"],
+          "default": "none",
+          "description": "Streaming transport protocol"
+        },
+        "compatible_with": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Known protocol compatibility (e.g. 'openai-chat-completions')"
+        },
+        "supports_function_calling": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether the Unit supports function/tool calling in the protocol sense"
+        }
+      },
+      "if": {
+        "properties": { "mode": { "const": "request-response" } }
+      },
+      "then": {
+        "properties": { "streaming_type": { "const": "none" } }
       }
     },
     "runtime": {
@@ -73,19 +111,21 @@
       "properties": {
         "framework": {
           "type": "string",
+          "default": "generic-python",
           "description": "Adapter name"
         },
         "language": {
           "type": "string",
-          "enum": ["python", "nodejs", "go"]
+          "enum": ["python", "nodejs", "go"],
+          "default": "python"
         },
-        "entry": { "type": "string" },
+        "entry": { "type": "string", "default": "app.py" },
         "model": {
           "type": "object",
-          "required": ["provider", "name"],
+          "description": "Design-time model declaration — the model this Unit was developed and tested against. Runtime model is controlled by build.env (MODEL_BASE_URL, MODEL_API_KEY)",
           "properties": {
-            "provider": { "type": "string" },
-            "name": { "type": "string" }
+            "provider": { "type": "string", "default": "openai" },
+            "name": { "type": "string", "default": "gpt-4o" }
           }
         },
         "routing": {
@@ -95,7 +135,7 @@
             "default": {
               "type": "string",
               "enum": ["auto", "explicit", "hybrid"],
-              "default": "auto",
+              "default": "hybrid",
               "description": "Default routing mode for skill selection"
             }
           }
@@ -119,6 +159,14 @@
                   "description": {
                     "type": "string",
                     "description": "One-line description for routing and registry"
+                  },
+                  "contract": {
+                    "type": "object",
+                    "description": "Optional per-skill contract override (inherits Unit-level contract if omitted)",
+                    "properties": {
+                      "inputs": { "type": "object" },
+                      "outputs": { "type": "object" }
+                    }
                   }
                 }
               }
@@ -131,6 +179,10 @@
                 "properties": {
                   "name": { "type": "string" },
                   "path": { "type": "string" },
+                  "description": {
+                    "type": "string",
+                    "description": "One-line description of the tool"
+                  },
                   "type": {
                     "type": "string",
                     "enum": ["embedded", "external"],
@@ -146,7 +198,11 @@
                 "required": ["name", "path"],
                 "properties": {
                   "name": { "type": "string" },
-                  "path": { "type": "string" }
+                  "path": { "type": "string" },
+                  "description": {
+                    "type": "string",
+                    "description": "One-line description of the knowledge resource"
+                  }
                 }
               }
             }
@@ -158,22 +214,127 @@
         },
         "dependencies": {
           "type": "object",
-          "required": ["file"],
           "properties": {
-            "file": { "type": "string" }
+            "file": { "type": "string", "default": "requirements.txt" }
+          }
+        }
+      }
+    },
+    "resources": {
+      "type": "object",
+      "description": "Compute resource requirements for deployment",
+      "properties": {
+        "cpu": {
+          "type": "string",
+          "default": "1",
+          "description": "CPU units (K8s-style, e.g. '1', '500m')"
+        },
+        "memory": {
+          "type": "string",
+          "default": "512Mi",
+          "description": "Memory (K8s-style, e.g. '512Mi', '1Gi')"
+        },
+        "gpu": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether GPU is required"
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "default": 300,
+          "minimum": 1,
+          "description": "Max execution time per request"
+        },
+        "concurrency": {
+          "type": "integer",
+          "default": 10,
+          "minimum": 1,
+          "description": "Max concurrent requests"
+        }
+      }
+    },
+    "services": {
+      "type": "object",
+      "description": "External service dependencies",
+      "properties": {
+        "outbound_network": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether the Unit requires outbound internet access"
+        },
+        "domains": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Domains that need to be accessible (for firewall configuration)"
+        }
+      }
+    },
+    "observability": {
+      "type": "object",
+      "description": "Observability declarations — what to measure, how to collect, what baselines to expect",
+      "properties": {
+        "metrics_endpoint": {
+          "type": "string",
+          "default": "",
+          "description": "Prometheus-compatible metrics endpoint path. Empty = not exposed"
+        },
+        "evaluation_indicators": {
+          "type": "array",
+          "description": "Output fields that are quality signals for HA-OOS to track",
+          "items": {
+            "type": "object",
+            "required": ["field"],
+            "properties": {
+              "field": {
+                "type": "string",
+                "description": "Property name in contract.outputs"
+              },
+              "description": { "type": "string" },
+              "range": {
+                "type": "array",
+                "items": { "type": "number" },
+                "minItems": 2,
+                "maxItems": 2,
+                "description": "Expected value range [min, max]"
+              },
+              "higher_is_better": {
+                "type": "boolean",
+                "default": true,
+                "description": "Whether higher values indicate better quality"
+              }
+            }
+          }
+        },
+        "baselines": {
+          "type": "object",
+          "description": "Design-time performance expectations for HA-OOS to compare against",
+          "properties": {
+            "latency_p95_ms": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Expected P95 latency in milliseconds"
+            },
+            "success_rate": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Expected success rate (0-1)"
+            }
           }
         }
       }
     },
     "build": {
       "type": "object",
+      "description": "Container build configuration. Env vars with empty string values must be provided at runtime",
       "properties": {
         "base_image": { "type": "string", "default": "python:3.11-slim" },
         "port": { "type": "integer", "default": 8091, "minimum": 1, "maximum": 65535 },
         "health_check": { "type": "string", "default": "/health" },
         "env": {
           "type": "object",
-          "additionalProperties": { "type": "string" }
+          "additionalProperties": { "type": "string" },
+          "description": "Environment variables. Empty string = must be provided at runtime"
         }
       }
     }
