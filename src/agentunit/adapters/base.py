@@ -53,10 +53,12 @@ class AgentAdapter(ABC):
         lines.append("")
 
         if self._include_healthcheck(spec):
-            lines.append(
-                f"HEALTHCHECK CMD curl -f http://localhost:{spec.build.port}"
-                f"{spec.build.health_check} || exit 1"
+            hc_url = f"http://localhost:{spec.build.port}{spec.build.health_check}"
+            hc_python = (
+                f"import urllib.request,sys; sys.exit(0"
+                f" if urllib.request.urlopen('{hc_url}',timeout=2).status==200 else 1)"
             )
+            lines.append(f'HEALTHCHECK CMD python -c "{hc_python}" || exit 1')
             lines.append("")
 
         entry_args = self._entrypoint_args(spec)
