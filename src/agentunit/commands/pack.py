@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import subprocess
-from pathlib import Path  # noqa: TC003
+import tempfile
+from pathlib import Path
 
 import typer
 from rich.console import Console
@@ -40,21 +41,34 @@ def handle(
     # Generate Dockerfile
     dockerfile_content = adapter.generate_dockerfile(spec, context_dir)
 
-    # Write Dockerfile to context
-    dockerfile_path = context_dir / "Dockerfile"
-    dockerfile_path.write_text(dockerfile_content, encoding="utf-8")
+    # Write Dockerfile to temp file (avoids polluting source directory)
+    dockerfile_fd, dockerfile_path = tempfile.mkstemp(suffix=".Dockerfile")
+    try:
+        with open(dockerfile_fd, "w", encoding="utf-8") as f:
+            f.write(dockerfile_content)
 
-    console.print("[dim]Generated Dockerfile[/dim]")
+        console.print("[dim]Generated Dockerfile[/dim]")
 
-    # Generate .dockerignore if not present
-    dockerignore_path = context_dir / ".dockerignore"
-    if not dockerignore_path.exists():
-        dockerignore_path.write_text(_DOCKERIGNORE, encoding="utf-8")
-        console.print("[dim]Generated .dockerignore[/dim]")
+        # Generate .dockerignore if not present
+        dockerignore_path = context_dir / ".dockerignore"
+        if not dockerignore_path.exists():
+            dockerignore_path.write_text(_DOCKERIGNORE, encoding="utf-8")
+            console.print("[dim]Generated .dockerignore[/dim]")
 
-    # Build Docker image
-    console.print(f"[bold]Building Docker image:[/bold] {tag}")
-    cmd = ["docker", "build", "-t", tag, "-f", str(dockerfile_path), str(context_dir)]
+        # Build Docker image
+        console.print(f"[bold]Building Docker image:[/bold] {tag}")
+        cmd = ["docker", "build", "-t", tag, "-f", dockerfile_path, str(context_dir)]
+
+        try:
+            subprocess.run(cmd, capture_output=False, check=True)
+        except subprocess.CalledProcessError as e:
+            console.print(f"[red]Docker build failed (exit code {e.returncode})[/red]")
+            raise typer.Exit(1) from None
+        except FileNotFoundError:
+            console.print("[red]Error:[/red] Docker not found. Install Docker to use `au pack`.")
+            raise typer.Exit(1) from None
+    finally:
+        Path(dockerfile_path).unlink(missing_ok=True)
 
     try:
         subprocess.run(cmd, capture_output=False, check=True)

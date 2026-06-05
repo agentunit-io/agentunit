@@ -87,12 +87,18 @@
 - Pydantic `Governance.max_token_per_task` 新增 `ge=1` 约束
 - Spec 文档 `dependencies.file` 从 "Required" 改为 "Optional. Default"
 
-### Streamlit Invoker (未提交)
+### Streamlit Invoker
 - 通用调用演示前端 — 连接运行中的 Agent Unit 的 `/run` 端点
 - 动态表单生成 — 从 `/spec` 拉取 contract.inputs 自动生成输入控件
 - Telemetry 展示 — latency、token usage、skill_id
 - 多 Skill 选择支持
 - 放置于 `examples/invokers/`，与 Unit 实现解耦
+
+### Docker 端到端验证
+- HEALTHCHECK 从 curl 改为 python urllib（修复 slim 镜像无 curl 问题）
+- `au run` 新增 `--serve` 模式（HTTP 服务器前台运行）
+- Dockerfile 改为临时文件生成，不再污染源码目录
+- 完整流程验证通过：validate → pack → one-shot run → serve → HTTP 调用
 
 ---
 
