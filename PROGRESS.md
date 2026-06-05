@@ -87,6 +87,13 @@
 - Pydantic `Governance.max_token_per_task` 新增 `ge=1` 约束
 - Spec 文档 `dependencies.file` 从 "Required" 改为 "Optional. Default"
 
+### Streamlit Invoker (未提交)
+- 通用调用演示前端 — 连接运行中的 Agent Unit 的 `/run` 端点
+- 动态表单生成 — 从 `/spec` 拉取 contract.inputs 自动生成输入控件
+- Telemetry 展示 — latency、token usage、skill_id
+- 多 Skill 选择支持
+- 放置于 `examples/invokers/`，与 Unit 实现解耦
+
 ---
 
 ## 文件清单
@@ -105,6 +112,8 @@
 | `src/agentunit/commands/run.py` | `au run` 命令 |
 | `src/agentunit/cli/main.py` | CLI 入口 |
 | `spec/agentunit-spec-v0.1.md` | Spec 规范文档 |
+| `examples/invokers/streamlit_invoker.py` | Streamlit 调用演示 |
+| `examples/invokers/requirements.txt` | Invoker 依赖 |
 | `spec/schemas/agentunit-schema.json` | JSON Schema |
 | `examples/prd-writer-generic/` | PRD Writer Demo |
 | `tests/test_spec.py` | Spec 测试（37 tests） |

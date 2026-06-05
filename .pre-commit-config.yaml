@@ -23,6 +23,7 @@ repos:
     rev: v1.16.0
     hooks:
       - id: mypy
+        exclude: ^examples/
         additional_dependencies:
           - types-pyyaml>=6.0
           - types-jsonschema>=4.21
