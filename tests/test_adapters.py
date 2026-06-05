@@ -134,3 +134,22 @@ class TestEntrypointArgs:
             runtime=Runtime(entry="pm_agent.main"),
         )
         assert adapter._entrypoint_args(spec) == ["python", "-m", "pm_agent.main"]
+
+
+class TestDockerignoreGeneration:
+    def test_dockerignore_constant_exists(self) -> None:
+        from agentunit.commands.pack import _DOCKERIGNORE
+
+        assert ".git" in _DOCKERIGNORE
+        assert "__pycache__" in _DOCKERIGNORE
+        assert ".env" in _DOCKERIGNORE
+        assert ".DS_Store" in _DOCKERIGNORE
+
+    def test_dockerignore_not_overwritten(self, tmp_path: Path) -> None:
+        existing = tmp_path / ".dockerignore"
+        existing.write_text("custom-content\n")
+        from agentunit.commands.pack import _DOCKERIGNORE
+
+        if not (tmp_path / ".dockerignore").exists():
+            (tmp_path / ".dockerignore").write_text(_DOCKERIGNORE)
+        assert (tmp_path / ".dockerignore").read_text() == "custom-content\n"

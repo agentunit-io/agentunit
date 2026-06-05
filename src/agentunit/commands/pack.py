@@ -46,6 +46,12 @@ def handle(
 
     console.print("[dim]Generated Dockerfile[/dim]")
 
+    # Generate .dockerignore if not present
+    dockerignore_path = context_dir / ".dockerignore"
+    if not dockerignore_path.exists():
+        dockerignore_path.write_text(_DOCKERIGNORE, encoding="utf-8")
+        console.print("[dim]Generated .dockerignore[/dim]")
+
     # Build Docker image
     console.print(f"[bold]Building Docker image:[/bold] {tag}")
     cmd = ["docker", "build", "-t", tag, "-f", str(dockerfile_path), str(context_dir)]
@@ -76,3 +82,22 @@ def handle(
 
     console.print(f"\n[green]Successfully packed {tag}[/green]")
     console.print(f"Run with: [bold]au run {tag} --input input.json[/bold]")
+
+
+_DOCKERIGNORE = """\
+.git
+.gitignore
+__pycache__/
+*.pyc
+*.pyo
+.env
+.venv/
+venv/
+.DS_Store
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+"""
