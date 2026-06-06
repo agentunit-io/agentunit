@@ -21,9 +21,8 @@ def _discover() -> None:
     # Register built-in adapters
     from agentunit.adapters.generic_python.adapter import GenericPythonAdapter
     from agentunit.adapters.langchain.adapter import LangChainAdapter
-    from agentunit.adapters.pm_agent.adapter import PmAgentAdapter
 
-    for adapter_cls in (GenericPythonAdapter, LangChainAdapter, PmAgentAdapter):
+    for adapter_cls in (GenericPythonAdapter, LangChainAdapter):
         adapter = adapter_cls()
         _adapters[adapter.name] = adapter
 

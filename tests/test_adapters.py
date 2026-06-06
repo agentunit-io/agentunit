@@ -23,7 +23,6 @@ class TestAdapterRegistry:
         names = framework_names()
         assert "generic-python" in names
         assert "langchain" in names
-        assert "pm-agent" in names
 
     def test_get_existing_adapter(self) -> None:
         adapter = get("generic-python")
@@ -35,7 +34,7 @@ class TestAdapterRegistry:
 
     def test_list_frameworks_returns_all(self) -> None:
         adapters = list_frameworks()
-        assert len(adapters) >= 3
+        assert len(adapters) >= 2
 
 
 class TestGenericPythonAdapter:
@@ -86,36 +85,6 @@ class TestLangChainAdapter:
         assert "ENTRYPOINT" in dockerfile
 
 
-class TestPmAgentAdapter:
-    def test_init_templates(self) -> None:
-        adapter = get("pm-agent")
-        templates = adapter.get_init_templates()
-        assert "agentunit.yaml" in templates
-        assert "config/default.yaml" in templates
-
-    def test_framework_config_validation(self) -> None:
-        adapter = get("pm-agent")
-        warnings = adapter.validate_framework_config({"model_tier": "standard"})
-        assert len(warnings) == 0
-
-    def test_framework_config_unknown_key(self) -> None:
-        adapter = get("pm-agent")
-        warnings = adapter.validate_framework_config({"unknown_key": "value"})
-        assert len(warnings) == 1
-        assert "unknown_key" in warnings[0]
-
-    def test_generate_dockerfile_module_entry(self) -> None:
-        adapter = get("pm-agent")
-        spec = AgentUnitSpec(
-            metadata=Metadata(name="test-pm", version="1.0.0", description="test"),
-            contract=Contract(inputs={}, outputs={}),
-            runtime=Runtime(framework="pm-agent", entry="pm_agent.main"),
-        )
-        dockerfile = adapter.generate_dockerfile(spec, Path("/tmp"))
-        assert 'ENTRYPOINT ["python", "-m", "pm_agent.main"]' in dockerfile
-        assert "HEALTHCHECK" in dockerfile
-
-
 class TestEntrypointArgs:
     def test_file_entry(self) -> None:
         adapter = get("generic-python")
@@ -127,13 +96,13 @@ class TestEntrypointArgs:
         assert adapter._entrypoint_args(spec) == ["python", "app.py"]
 
     def test_module_entry(self) -> None:
-        adapter = get("pm-agent")
+        adapter = get("generic-python")
         spec = AgentUnitSpec(
             metadata=Metadata(name="test", version="1.0.0", description="test"),
             contract=Contract(inputs={}, outputs={}),
-            runtime=Runtime(entry="pm_agent.main"),
+            runtime=Runtime(entry="my_agent.main"),
         )
-        assert adapter._entrypoint_args(spec) == ["python", "-m", "pm_agent.main"]
+        assert adapter._entrypoint_args(spec) == ["python", "-m", "my_agent.main"]
 
 
 class TestDockerignoreGeneration:

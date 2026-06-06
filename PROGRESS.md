@@ -12,7 +12,7 @@
 ### 基础架构 (commit 904b8ab)
 - CLI 工具 `au` — Typer 框架，4 个命令 (`init`, `validate`, `pack`, `run`)
 - Spec 解析与校验 — Pydantic 模型 + JSON Schema 双重验证
-- 适配器架构 — 基类 + 注册中心 + 3 个内置适配器 (generic-python, langchain, pm-agent)
+- 适配器架构 — 基类 + 注册中心 + 2 个内置适配器 (generic-python, langchain)
 - PRD Writer 示例 — generic-python 框架，完整 skill/tool/knowledge 结构
 - 测试覆盖 — 33 个测试全部通过
 
@@ -111,7 +111,7 @@
 | `src/agentunit/adapters/registry.py` | 适配器注册中心 |
 | `src/agentunit/adapters/generic_python/` | 通用 Python 适配器（完整） |
 | `src/agentunit/adapters/langchain/` | LangChain 适配器（骨架） |
-| `src/agentunit/adapters/pm_agent/` | pm-agent 适配器（完整） |
+| `src/agentunit/adapters/pm_agent/` | *(已移除 — 待开源框架适配器时重新引入)* |
 | `src/agentunit/commands/init.py` | `au init` 命令 |
 | `src/agentunit/commands/validate.py` | `au validate` 命令 |
 | `src/agentunit/commands/pack.py` | `au pack` 命令 |
@@ -137,7 +137,7 @@
 ### 近期
 - [x] 提交本轮所有变更
 - [x] 端到端验证：`au init → au validate → au pack → au run` 完整流程
-- [ ] 补充 pm-agent 适配器的真实 Demo（`examples/prd-writer-pmagent/`）
+- [ ] Phase 1 选择一个开源框架（LangGraph/CrewAI）做真实 Demo
 
 ### Phase 1 计划
 - [ ] JSON Schema 自动生成（从 Pydantic model_json_schema() 生成，保留手写 if/then 等交叉约束的后处理）
