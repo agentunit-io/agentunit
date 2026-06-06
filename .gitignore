@@ -43,5 +43,4 @@ Thumbs.db
 *.whl
 
 # Internal documents
-docs/AGENTUNIT-CHARTER.md
-docs/PRINCIPLES.md
+docs/

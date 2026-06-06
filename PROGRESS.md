@@ -42,7 +42,7 @@
 **新增可观测性：**
 - `observability` section — 质量指标标记 + 性能基线
 - Telemetry 信封 — `/run` 响应从 `{output}` 变为 `{output, telemetry}`
-- 三层评估模型文档 `docs/OBSERVABILITY-DESIGN.md`
+- 三层评估模型设计 → 见 [docs/SPEC-DESIGN.md](docs/SPEC-DESIGN.md)
 
 **修复 6 项调整：**
 - `max_token_per_task` 从 `int=0` 改为 `int|None=None`
@@ -124,20 +124,24 @@
 | `examples/prd-writer-generic/` | PRD Writer Demo |
 | `tests/test_spec.py` | Spec 测试（37 tests） |
 | `tests/test_adapters.py` | 适配器测试（16 tests） |
-| `docs/AGENTUNIT-CHARTER.md` | 项目计划书 |
+| `docs/README.md` | 文档导航（阅读顺序 + 文档地图） |
+| `docs/VISION.md` | 愿景、定位、四层架构、阶段路径、商业地图 |
+| `docs/SPEC-DESIGN.md` | Spec 设计决策（可观测性 + Telemetry + 扩展评估） |
+| `docs/HA-OOS-ARCHITECTURE.md` | HA-OOS 三层架构 + 实体模型 + 分期建议 |
 | `docs/PRINCIPLES.md` | 个人原则卡 |
-| `docs/OBSERVABILITY-DESIGN.md` | 可观测性设计文档 |
 
 ---
 
 ## 下一步
 
-### 近期（当前未提交的变更提交后）
-- [ ] 提交本轮所有变更
+### 近期
+- [x] 提交本轮所有变更
+- [x] 端到端验证：`au init → au validate → au pack → au run` 完整流程
 - [ ] 补充 pm-agent 适配器的真实 Demo（`examples/prd-writer-pmagent/`）
-- [ ] 端到端验证：`au init → au validate → au pack → au run` 完整流程
 
 ### Phase 1 计划
+- [ ] JSON Schema 自动生成（从 Pydantic model_json_schema() 生成，保留手写 if/then 等交叉约束的后处理）
+- [ ] validate_spec 返回带严重级别的 warning（`list[tuple[str, Literal["error","warning"]]]`），pack 按级别过滤，替代当前的 `"not found" in w` 字符串匹配
 - [ ] 安全/沙箱声明（`security.sandbox_level`）
 - [ ] 版本兼容性声明
 - [ ] 可观测性增强（日志格式、tracing、metrics 端点模板）
@@ -146,7 +150,7 @@
 - [ ] 社区贡献适配器入口（entry_points）
 
 ### Phase 2
-- [ ] HA-OOS MVP — Agent 注册 + 责任锚定 + Score Card
+- [ ] HA-OOS MVP — Agent 注册 + 责任锚定 + Score Card（架构设计见 [docs/HA-OOS-ARCHITECTURE.md](docs/HA-OOS-ARCHITECTURE.md)）
 - [ ] 企业 Registry
 - [ ] 审计/合规
 
