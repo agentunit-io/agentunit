@@ -46,7 +46,7 @@ protocol:
   supports_function_calling: boolean  # Default false
 
 runtime:
-  framework: string      # Required. Adapter name: generic-python | langchain | pm-agent | custom. Default "generic-python"
+  framework: string      # Required. Adapter name: generic-python | langchain | custom. Default "generic-python"
   language: string       # Required. python | nodejs | go. Default "python"
   entry: string          # Required. Agent entry point (file path or module path, framework-dependent). Default "app.py"
   model:
