@@ -48,9 +48,20 @@ Now you have a Docker container running a structured AI business unit.
 One-shot mode is also available:
 
 ```bash
-echo '{"requirement_notes": "Build a todo app"}' > input.json
+echo '{"prompt": "Build a todo app"}' > input.json
 au run prd-writer:1.0.0 --input input.json
 ```
+
+### Try the Invoker (optional)
+
+Open a browser-based UI to call your running Unit:
+
+```bash
+pip install streamlit requests
+streamlit run examples/invokers/streamlit_invoker.py
+```
+
+Then open http://localhost:8501, connect to `http://localhost:8091`, and click Run.
 
 ---
 
