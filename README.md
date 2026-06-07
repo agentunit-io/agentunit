@@ -29,7 +29,7 @@ Get a PRD Writer running in 4 steps:
 
 ```bash
 # 1. Install
-pip install git+https://github.com/angdem-c/agentunit.git
+pip install git+https://github.com/agentunit-io/agentunit.git
 
 # 2. Scaffold a new unit
 au init prd-writer
