@@ -38,20 +38,39 @@ def load_knowledge() -> str:
     return "\n---\n".join(contents)
 
 
-def generate_prd(requirement_notes: str, project_name: str = "") -> dict[str, Any]:
-    """Generate a PRD document.
+def _call_llm(skill_prompt: str, knowledge: str, requirement_notes: str, project_name: str) -> str:
+    """Call the LLM via OpenAI-compatible API. Returns the raw text response."""
+    from openai import OpenAI
 
-    In production, this calls the LLM. For demo, returns a template.
-    """
-    _skill_prompt = load_skill_prompt()
-    _knowledge = load_knowledge()
-    project = project_name or "未命名项目"
+    api_key = os.environ.get("MODEL_API_KEY", "")
+    base_url = os.environ.get("MODEL_BASE_URL", "https://api.openai.com/v1")
+    model_name = os.environ.get("MODEL_NAME", "deepseek-chat")
 
-    # Demo: return a structured PRD template
-    # In production: call OpenAI API with skill_prompt + knowledge + requirement_notes
+    client = OpenAI(api_key=api_key, base_url=base_url)
+
+    system_msg = skill_prompt
+    if knowledge:
+        system_msg += f"\n\n## 参考模板\n{knowledge}"
+
+    user_msg = f"项目名称：{project_name}\n\n需求要点：\n{requirement_notes}"
+
+    response = client.chat.completions.create(
+        model=model_name,
+        messages=[
+            {"role": "system", "content": system_msg},
+            {"role": "user", "content": user_msg},
+        ],
+        temperature=0.7,
+        max_tokens=4000,
+    )
+    return response.choices[0].message.content or ""
+
+
+def _demo_prd(requirement_notes: str, project_name: str) -> dict[str, Any]:
+    """Fallback: return a structured PRD template without LLM."""
     prd = f"""# 产品需求文档（PRD）
 
-## 项目：{project}
+## 项目：{project_name}
 
 ---
 
@@ -61,38 +80,32 @@ def generate_prd(requirement_notes: str, project_name: str = "") -> dict[str, An
 
 ## 2. 用户故事
 
-*基于需求要点自动生成（接入 LLM 后填充）*
+*需人工补充*
 
 ## 3. 功能需求
 
 | 编号 | 名称 | 描述 | 优先级 |
 |------|------|------|--------|
-| F-001 | 核心功能 | 待 LLM 基于需求分析生成 | P0 |
-
-## 4. 非功能需求
-
-- 性能：待确认
-- 安全：待确认
-- 兼容性：待确认
-
-## 5. 验收标准
-
-- [ ] 核心功能可正常运行
-
-## 6. 风险与依赖
-
-*待 LLM 分析后生成*
+| F-001 | 核心功能 | 待分析 | P0 |
 
 ---
 
-> 此 PRD 由 PRD Writer Agent Unit v1.0.0 自动生成
-> 责任人：待指定
-> 状态：草稿（需人工审核）
+> 此 PRD 由 PRD Writer Agent Unit v1.0.0 自动生成（无 LLM，模板模式）
 """
-    return {
-        "prd_document": prd,
-        "quality_score": 0.6,
-    }
+    return {"prd_document": prd, "quality_score": 0.3}
+
+
+def generate_prd(requirement_notes: str, project_name: str = "") -> dict[str, Any]:
+    """Generate a PRD document via LLM, falling back to a template if no API key is set."""
+    skill_prompt = load_skill_prompt()
+    knowledge = load_knowledge()
+    project = project_name or "未命名项目"
+
+    if not os.environ.get("MODEL_API_KEY"):
+        return _demo_prd(requirement_notes, project)
+
+    prd_text = _call_llm(skill_prompt, knowledge, requirement_notes, project)
+    return {"prd_document": prd_text, "quality_score": 0.8}
 
 
 async def health(request: Request) -> JSONResponse:
