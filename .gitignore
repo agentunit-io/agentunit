@@ -42,3 +42,6 @@ docs/.DS_Store
 
 # Build artifacts
 *.whl
+
+# Dev notes
+PROGRESS.md
