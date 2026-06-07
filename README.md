@@ -7,6 +7,8 @@ AgentUnit provides a standard (`agentunit.yaml`) and a CLI tool (`au`) to packag
 > Think of it as defining the **RPM/DEB** for AI Agents.
 > Not a framework, not a runtime, but a **packaging standard**.
 
+**Read the story**: [Why AgentUnit Exists](blog/why-agentunit-exists.md) — Shipping AI like Software.
+
 ---
 
 ## Why AgentUnit?
