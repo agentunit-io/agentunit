@@ -70,15 +70,6 @@ def handle(
     finally:
         Path(dockerfile_path).unlink(missing_ok=True)
 
-    try:
-        subprocess.run(cmd, capture_output=False, check=True)
-    except subprocess.CalledProcessError as e:
-        console.print(f"[red]Docker build failed (exit code {e.returncode})[/red]")
-        raise typer.Exit(1) from None
-    except FileNotFoundError:
-        console.print("[red]Error:[/red] Docker not found. Install Docker to use `au pack`.")
-        raise typer.Exit(1) from None
-
     # Summary
     table = Table(title="Agent Unit Image")
     table.add_column("Property", style="bold")
