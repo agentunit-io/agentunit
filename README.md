@@ -7,8 +7,6 @@ AgentUnit provides a standard (`agentunit.yaml`) and a CLI tool (`au`) to packag
 > Think of it as defining the **RPM/DEB** for AI Agents.
 > Not a framework, not a runtime, but a **packaging standard**.
 
-**Read the story**: [Why AgentUnit Exists](blog/why-agentunit-exists.md) — Shipping AI like Software.
-
 ---
 
 ## Why AgentUnit?
@@ -180,3 +178,7 @@ Issues and pull requests are welcome. Please read the [Spec](spec/agentunit-spec
 ## License
 
 Apache 2.0
+
+---
+
+**Read the story**: [Why AgentUnit Exists](blog/why-agentunit-exists.md) — Shipping AI like Software. | [Also on DEV](https://dev.to/angdem/agentunit-shipping-ai-like-software-1e9c)
