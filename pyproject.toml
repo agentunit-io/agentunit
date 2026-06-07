@@ -53,7 +53,6 @@ au = "agentunit.cli.main:app"
 [project.entry-points."agentunit.adapters"]
 generic-python = "agentunit.adapters.generic_python:GenericPythonAdapter"
 langchain = "agentunit.adapters.langchain:LangChainAdapter"
-pm-agent = "agentunit.adapters.pm_agent:PmAgentAdapter"
 
 # ── Ruff (linter + formatter) ──
 
